@@ -137,14 +137,13 @@ parameters {
   vector[rand_params] p1_rand_ef_mean;
   vector <lower=0> [rand_params] p1_rand_ef_sd;
 
-  // these are fixed parameters?
+  // these are fixed parameters
   vector [(k_1 + 1) - rand_params] p_1_fixed;
   vector [k_2 + 1] p_2;
 }
 
 transformed parameters {
   // these two big quantities should now be matricies
-  // my brain hurts
   matrix[N_i, q + 1] beta_final;
 
   // These are always going to be different lengths.
@@ -152,7 +151,7 @@ transformed parameters {
   matrix[N_i, (2*k_1) + 1] gamma_1;
   matrix[N_i, (2*k_2) + 2] gamma_2; //
 
-  // when i add the above two variables, am i going to need to zero pad?
+  // when i add the above two variables,  i going to need to zero pad
   matrix[N_i, q] gamma;
 
   // going to need a mu vector to hold the means appropriately
@@ -164,11 +163,11 @@ transformed parameters {
   // there has to be some loop in here, at least until i figure out what
   // the vector wise operation is
 
-  for(ii in 1:(N_i)) { // not sure i'm getting at all the individuals with
-  // these loop bounds
+  for(ii in 1:(N_i)) {
     // create appropriate p_1 for each indiviudal
     // might have to do this outside the loop and overwrite it each time
     vector[k_1 + 1] temp_p1;
+
     //vector[position_vector[ii + 1] - position_vector[ii]] temp_mu;
     int lower_loop;
     int upper_loop;
@@ -182,8 +181,6 @@ transformed parameters {
     gamma_2[ii] = rep_row_vector(0, (2*k_2) + 2);
 
     temp_p1 = append_row(p_1_rand[ii]', p_1_fixed);
-
-
 
     // put in correct rows of 'temporary' matrix gamma_i
     gamma_2[ii] = convolve(convolve(p_2, p_2), lower_bound_vector)';
@@ -202,16 +199,8 @@ transformed parameters {
       beta_final[ii, qq + 1] = alpha *  (gamma[ii, qq] / qq);
     }
 
-    // not sure if i can do assignment with a functional on the left
-
-    //mu really needs to change here????? need another ragged data structures, which is i guess why i am using mu.
     mu[lower_loop:upper_loop] = horner(x_vector[lower_loop:upper_loop], beta_final[ii]');
 
-    // // otherwise we could do it like this?
-    // temp_mu = horner(segment(x_vector, position_vector[ii], position_vector[ii + 1]));
-    // // can't do it like this, doesn't dynamically resize shit, this would just
-    // // tack it onto the end of a bunch of zeros
-    // mu = append_row();
   }
 
 }
@@ -220,26 +209,18 @@ model {
   // loop over each individuals polynomial
   for (ii in 1:(N_i)) {
     // need to delcare y, mu will be declared elsewhere
-    // get the appropriate part of the mu "matrix" ??
     int loop_lower;
     int loop_upper;
     loop_lower = position_vector[ii];
     loop_upper = position_vector[ii + 1] - 1;
     y_vector[loop_lower:loop_upper] ~  normal(mu[loop_lower:loop_upper], sd_y);
 
-    // is this really sensible for the setup?
-    // all these dimensions will be incorrect
     p_1_rand[ii] ~ normal(p1_rand_ef_mean, p1_rand_ef_sd);
 
 
   }
 
   beta_zero ~ normal(beta_zero_mean, beta_zero_sd);
-  // lets do something quite silly, is it that silly though? Tighter might be
-  // more sensible if anything :: Shrinkage prior.
-  // I actually really don't like this prior, can we use like half normal with
-  // small SD instead?
-  // p1_rand_ef_sd ~ inv_gamma(10, 0.5);
   p1_rand_ef_sd ~ normal(0, 0.1);
 
   // 4/12/17 note
@@ -265,7 +246,8 @@ model {
   // also a note that the specificaition is non-unique, and hence we can have
   // chains that disagree considerably, with poor r^hat values, but all fit the
   // data reasonably well. Hence the convergence metrics of interest are really
-  // the fitted values. Maybe also the variance paramter.
+  // the fitted values and the posterior predctive means. Maybe also the
+  // variance paramter(s).
 
 }
 
@@ -310,17 +292,9 @@ generated quantities {
 
   mu_new_pop = horner(x_new_vector, beta_final_pop);
 
-  // i'm fine with everything above, but if i want to use this formulation to get a handle on the
-  // prediction intervals, then i will need the correct variance covariance matrix in the sampling statement below
-  // and i have no idea how to get that.
-
-  // y_new_pop = multi_normal_rng(mu_new_pop, )
-
-
-  // compute beta_final_pop vector using means. Can use as mean to randomly sample from the normaly distribution with such a mean (prediction intervals)
-  //  but also use each mc iterate of beta_final_pop to calculate the confidence intervals for the population curve.
-
-
+  // i'm fine with everything above, but if i want to use this formulation to
+  // get a handle on the prediction intervals, then i will need the correct
+  // variance at the population level, which may or may not be avaliable. Unsure
 
 
 }
